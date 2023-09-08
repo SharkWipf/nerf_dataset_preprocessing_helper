@@ -19,7 +19,7 @@ def retain_sharpest_per_group(group_sizes, image_fm, offset=0):
 
     return selected_images
 
-def filter_sharpest_images(images, target_count, use_two_pass_approach, force_grouping, force_ungrouped):
+def filter_sharpest_images(images, target_count, use_two_pass_approach, force_grouped, force_ungrouped):
     image_fm = [(variance_of_laplacian(cv2.cvtColor(cv2.imread(img), cv2.COLOR_BGR2GRAY)), img) for img in tqdm(images)]
 
     split = len(images) / target_count
@@ -27,15 +27,15 @@ def filter_sharpest_images(images, target_count, use_two_pass_approach, force_gr
     formatted_ratio = "{:.2%}".format(ratio)
     print(f"Requested {target_count} out of {len(images)} images ({formatted_ratio}, 1 in {split}).")
 
-    if not force_grouping and split < 2 or force_ungrouped:
+    if not force_grouped and split < 2 or force_ungrouped:
         if not force_ungrouped:
-            print("Warning: Ratio is < 2, falling back to ungrouped approach (use --force_grouping to override).")
+            print("Warning: Ratio is < 2, falling back to ungrouped approach (use --force_grouped to override).")
         print("Running ungrouped. This may cause an uneven distribution of data.")
         image_fm.sort()
         return [img[1] for img in image_fm[-target_count:]]
 
     else:
-        if force_grouping and split < 2:
+        if force_grouped and split < 2:
             print("Warning: Forcibly grouping despite a ratio of < 2. This may not work as expected.")
             if(use_two_pass_approach):
                 print("Cannot use two-pass with a ratio of <2. Falling back to single pass.")
