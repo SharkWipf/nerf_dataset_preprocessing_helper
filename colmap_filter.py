@@ -37,7 +37,7 @@ def main(transforms_path, target_count, use_two_pass_approach, output_file, forc
     with open(json_path, "r") as file:
         transforms_data = json.load(file)
 
-    frames = sorted(transforms_data["frames"], key=lambda x: x["file_path"])
+    frames = sorted(transforms_data["frames"], key=lambda x: x["colmap_im_id"])
     images = [os.path.join(main_directory, frame["file_path"]) for frame in frames]
     image_fm = [(variance_of_laplacian(cv2.cvtColor(cv2.imread(img), cv2.COLOR_BGR2GRAY)), os.path.relpath(img, main_directory)) for img in tqdm(images)]
 
