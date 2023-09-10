@@ -2,7 +2,7 @@ import os
 import argparse
 import shutil
 import subprocess
-from common import filter_sharpest_images
+from ImageSelector import ImageSelector
 
 def extract_frames(input_vid, output_dir):
     if not args.yes:
@@ -35,7 +35,8 @@ def main(input_path, output_dir, target_count, num_groups=None, scalar=None):
         total_images = len(images)
         target_count = int(total_images * (args.target_percentage / 100))
 
-    selected_images = filter_sharpest_images(images, target_count, num_groups, scalar)
+    selector = ImageSelector(images)
+    selected_images = selector.filter_sharpest_images(target_count, num_groups, scalar)
 
     if args.pretend:
         print(f"Would have retained {len(selected_images)} sharpest images. (--pretend)")
@@ -72,9 +73,9 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', help="Directory to save the preserved images. Mandatory for video, optional for images. Will delete images in-place if not specified.")
     group_target = parser.add_mutually_exclusive_group(required=True)
     group_target.add_argument('--target_count', type=int, help="Target number of images to retain.")
-    group_target.add_argument('--target_percentage', type=float, help="Target percentage of top quality images to retain. Value should be between 0 and 100.")
+    group_target.add_argument('--target_percentage', type=float, help="Target percentage of top quality images to retain. I.e. --target_percentage 95 removes the 5% worst quality images.")
     group_division = parser.add_mutually_exclusive_group()
-    group_division.add_argument('--num_groups', type=int, help="Specify the number of groups to divide the images into.")
+    group_division.add_argument('--groups', type=int, help="Specify the number of groups to divide the images into.")
     group_division.add_argument('--scalar', type=int, help="Specify the scalar value to determine group division if num_groups is not provided.")
     parser.add_argument('--pretend', action='store_true', help="Pretend mode. Do not delete anything, just show what would have been deleted. Warning: Will still create and populate the output dir if input is a video!")
     parser.add_argument('--yes', '-y', action='store_true', help="Automatically answer 'yes' to all prompts and execute actions.")
