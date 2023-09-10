@@ -25,6 +25,8 @@ Inspired by https://github.com/WalterGropius/FFF_deblur.
 - Can run entirely non-interactively, but asks for confirmation by default before doing anything.
 - Can operate in-place or to a separate output folder/file.
 
+![Example Image](assets/example.png)
+
 ## Usage
 
 ### Pre-filtering video or image sets with `01_filter_raw_data.py`
