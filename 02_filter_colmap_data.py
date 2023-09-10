@@ -3,7 +3,7 @@ import json
 import argparse
 from ImageSelector import ImageSelector
 
-def main(transforms_path, target_count, output_file, num_groups=None, scalar=None, pretend=False):
+def main(transforms_path, target_count, output_file, groups=None, scalar=None, pretend=False):
     # Determine whether we're working with a directory or a specific JSON file
     if os.path.isdir(transforms_path):
         main_directory = transforms_path
@@ -24,7 +24,7 @@ def main(transforms_path, target_count, output_file, num_groups=None, scalar=Non
         target_count = int(total_images * (args.target_percentage / 100))
 
     selector = ImageSelector(images)
-    selected_images = selector.filter_sharpest_images(target_count, num_groups, scalar)
+    selected_images = selector.filter_sharpest_images(target_count, groups, scalar)
 
     new_frames = [frame for frame in transforms_data["frames"] if os.path.join(main_directory, frame["file_path"]) in selected_images]
     transforms_data["frames"] = new_frames
@@ -49,11 +49,11 @@ if __name__ == '__main__':
     parser.add_argument('--transforms_path', required=True, help="Path to the main COLMAP output directory or the transforms.json file.")
     group_target = parser.add_mutually_exclusive_group(required=True)
     group_target.add_argument('--target_count', type=int, help="Target number of images to retain.")
-    group_target.add_argument('--target_percentage', type=float, help="Target percentage of top quality images to retain. I.e. --target_percentage 95 removes the 5% worst quality images.")
+    group_target.add_argument('--target_percentage', type=float, help="Target percentage of top quality images to retain. I.e. --target_percentage 95 removes the 5%% worst quality images.")
     parser.add_argument('--output_file', default=None, help="Path to save the output JSON. If not specified, the default is transforms_filtered.json in the same directory as the transforms file.")
     group_division = parser.add_mutually_exclusive_group()
     group_division.add_argument('--groups', type=int, help="Specify the number of groups to divide the images into.")
-    group_division.add_argument('--scalar', type=int, help="Specify the scalar value to determine group division if num_groups is not provided.")
+    group_division.add_argument('--scalar', type=int, help="Specify the scalar value to determine group division if groups is not provided.")
 
     parser.add_argument('--pretend', action='store_true', help="Pretend mode. Do not write or delete anything, just show what would have been done.")
     parser.add_argument('--yes', '-y', action='store_true', help="Automatically answer 'yes' to all prompts and execute actions.")
@@ -63,5 +63,5 @@ if __name__ == '__main__':
     if args.output_file is None:
         args.output_file = os.path.join(os.path.dirname(args.transforms_path), "transforms_filtered.json")
 
-    main(args.transforms_path, args.target_count, args.output_file, args.num_groups, args.scalar, args.pretend)
+    main(args.transforms_path, args.target_count, args.output_file, args.groups, args.scalar, args.pretend)
 
