@@ -1,10 +1,6 @@
 import cv2
-import os
 from tqdm import tqdm
 from graphlib import draw_graph
-
-def variance_of_laplacian(image):
-    return cv2.Laplacian(image, cv2.CV_64F).var()
 
 def generate_deleted_images_graph(all_images, selected_images):
     bins = 100
@@ -19,94 +15,67 @@ def generate_deleted_images_graph(all_images, selected_images):
         avg = deleted_count / len(current_bin)
         percentages.append(avg * 100)
 
-    draw_graph(percentages, "Distribution of Deleted Images (Not super useful for grouped mode)")
+    draw_graph(percentages, "Distribution of to-be-deleted images")
+
 
 def generate_quality_graph(image_fm):
-    draw_graph([quality for quality, _ in image_fm], "Distribution of Image Quality")
+    draw_graph([quality for quality, _ in image_fm], "Distribution of image quality")
 
-def retain_sharpest_per_group(group_sizes, image_fm, offset=0):
-    selected_images = []
-    offset_index = int(offset) if not offset else group_sizes[0] // 2
 
-    for size in group_sizes:
-        end_idx = offset_index + size
-        group = sorted(image_fm[offset_index:end_idx], reverse=True)
-        sharpest_img = group[0][1]
-        selected_images.append(sharpest_img)
-        offset_index = end_idx
+def variance_of_laplacian(image):
+    return cv2.Laplacian(image, cv2.CV_64F).var()
 
-    return selected_images
 
-def filter_sharpest_images(images, target_count, use_two_pass_approach, force_grouped, force_ungrouped):
-    image_fm = [(variance_of_laplacian(cv2.cvtColor(cv2.imread(img), cv2.COLOR_BGR2GRAY)), img) for img in tqdm(images)]
+def distribute_evenly(total, num_of_groups):
+    ideal_per_group = total / num_of_groups
+    accumulated_error = 0.0
+    distribution = [0] * num_of_groups
+    
+    for i in range(num_of_groups):
+        distribution[i] = int(ideal_per_group)
+        accumulated_error += ideal_per_group - distribution[i]
+        
+        while accumulated_error >= 1.0:
+            distribution[i] += 1
+            accumulated_error -= 1.0
+
+    return distribution, ideal_per_group
+
+
+def filter_sharpest_images(images, target_count, group_count=None, scalar=1):
+    if scalar is None:
+        scalar = 1
+    if group_count is None:  # If group_count is not provided, use scalar to determine it
+        group_count = target_count // (2 ** (scalar - 1))
+        group_count = max(1, group_count)  # Ensure it's at least 1 to avoid dividing by zero
+
+    # Calculate ratio and print details
     split = len(images) / target_count
     ratio = target_count / len(images)
     formatted_ratio = "{:.1%}".format(ratio)
-    print(f"Requested {target_count} out of {len(images)} images ({formatted_ratio}, 1 in {split:.2f}).")
+    print(f"Requested {target_count} out of {len(images)} images ({formatted_ratio}, 1 in {split:.1f}).")
+    print("Calculating image sharpness...")
+    image_fm = [(variance_of_laplacian(cv2.cvtColor(cv2.imread(img), cv2.COLOR_BGR2GRAY)), img) for img in tqdm(images)]
 
-    if not force_grouped and split < 2 or force_ungrouped:
-        if not force_ungrouped:
-            print("Warning: Ratio is < 2, falling back to ungrouped approach (use --force_grouped to override).")
-        print("Running ungrouped. This may cause an uneven distribution of data.")
-        image_fm_unsorted = image_fm.copy()
-        image_fm.sort()
-        selected_images = [img[1] for img in image_fm[-target_count:]]
+    # Determine group sizes
+    group_sizes, ideal_total_images_per_group = distribute_evenly(len(images), group_count)
+    images_per_group_list, ideal_selected_images_per_group = distribute_evenly(target_count, group_count)
 
-        print()
-        generate_deleted_images_graph(images, selected_images)
-        generate_quality_graph(image_fm_unsorted)
+    print(f"Selecting {target_count} image{'s' if target_count != 1 else ''} across {group_count} group{'s' if group_count != 1 else ''}, with total ~{ideal_total_images_per_group:.1f} image{'s' if ideal_total_images_per_group != 1 else ''} per group and selecting ~{ideal_selected_images_per_group:.1f} image{'s' if ideal_selected_images_per_group != 1 else ''} per group (scalar {scalar}).")
 
-        return selected_images
+    # Determine number of images to select from each group
+    images_per_group_list, _ = distribute_evenly(target_count, group_count)
 
-    else:
-        if force_grouped and split < 2:
-            print("Warning: Forcibly grouping despite a ratio of < 2. This may not work as expected.")
-            if(use_two_pass_approach):
-                print("Cannot use two-pass with a ratio of <2. Falling back to single pass.")
-                use_two_pass_approach = False
-        if use_two_pass_approach:
-            print("Using two-pass grouping (potentially better distribution, possibly slightly worse quality).")
-        else:
-            print("Using single-pass grouping (potentially worse distribution, possibly slightly higher quality).")
+    selected_images = []
+    offset_index = 0
+    for idx, size in enumerate(group_sizes):
+        end_idx = offset_index + size
+        group = sorted(image_fm[offset_index:end_idx], reverse=True)
+        selected_images.extend([img[1] for img in group[:images_per_group_list[idx]]])
+        offset_index = end_idx
 
-        # Here we will try to distribute "leftovers" over all groups as evenly as possible.
-        num_images = len(images)
-        group_sizes = [0] * target_count
+    print()
+    generate_deleted_images_graph(images, selected_images)
+    generate_quality_graph(image_fm)
 
-        # The ideal number of images per group
-        ideal_per_group = num_images / target_count
-        accumulated_error = 0.0
-
-        for i in range(target_count):
-            # Add the full groups worth
-            group_sizes[i] = int(ideal_per_group)
-            # Accumulate the error
-            accumulated_error += ideal_per_group - group_sizes[i]
-
-            # Check if the accumulated error has reached a whole number
-            while accumulated_error >= 1.0:
-                group_sizes[i] += 1
-                accumulated_error -= 1.0
-
-        selected_images = retain_sharpest_per_group(group_sizes, image_fm)
-
-        if use_two_pass_approach:
-            selected_images_second_pass = retain_sharpest_per_group(group_sizes, image_fm, offset=0.5)
-            combined_selection = list(zip(selected_images, selected_images_second_pass))
-
-            selected_images = []
-            for img1, img2 in combined_selection:
-                center_idx = (image_fm.index((next(item for item in image_fm if item[1] == img1))) +
-                              image_fm.index((next(item for item in image_fm if item[1] == img2)))) / 2
-
-                if abs(image_fm.index((next(item for item in image_fm if item[1] == img1))) - center_idx) < \
-                        abs(image_fm.index((next(item for item in image_fm if item[1] == img2))) - center_idx):
-                    selected_images.append(img1)
-                else:
-                    selected_images.append(img2)
-
-        print()
-        generate_deleted_images_graph(images, selected_images)
-        generate_quality_graph(image_fm)
-
-        return selected_images
+    return selected_images
