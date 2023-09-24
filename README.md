@@ -31,16 +31,25 @@ Inspired by https://github.com/WalterGropius/FFF_deblur.
 
 ### Pre-filtering video or image sets with `01_filter_raw_data.py`
 
-This script is useful for filtering out less sharp frames before running them through COLMAP or similar preprocessors.
+This script is useful for filtering out less sharp frames before running them through COLMAP or similar preprocessors.  
 When you run `ns-process-data video`, it already uses ffmpeg's thumbnailing functionality to attempt to pick out the best frames to use, however the best thumbnail may not also be the best frame to use in a NeRF. There's also no control.  
 This script gives you a few more knobs.
+
+### Post-filtering completed COLMAP datasets with `02_filter_colmap_data.py`
+
+This is probably the most significant/useful script here, with likely the most impact on your overall data quality.  
+This script will take any COLMAP transforms.json, iterate over the images in it, and remove images from the transforms.json based on your filtering rules.  
+This can be extremely useful when you have a long format video as input, and you need full COLMAP/HLOC mapping data, but you don't want every found frame to be used by nerfstudio.  
+The general consensus is that less is more with nerfstudio, you want as little images possible while still covering as many angles as possible. This is difficult to achieve with extensive scenes, as you need many more images to run COLMAP/HLOC successfully.  
+This script allows you to run COLMAP on as many images as you want, preserving the camera positions for every frame, and then trims down the resulting transforms.json to only include the sharpest images, optionally distributed evenly.  
+Do note however, this script only modifies transforms.json. It does not touch the images, nor the db file. If your software does not rely on transforms.json, this tool may not work for you.
 
 **Basic Syntax:**
 #### 01_filter_raw_data.py:
 
 ```
 usage: 01_filter_raw_data.py [-h] --input_path INPUT_PATH
-                             [--output_path OUTPUT_PATH]
+                             [--output_path OUTPUT_PATH] [--exts EXTS]
                              (--target_count TARGET_COUNT | --target_percentage TARGET_PERCENTAGE)
                              [--groups GROUPS | --scalar SCALAR] [--pretend]
                              [--yes]
@@ -55,6 +64,9 @@ options:
                         Directory to save the preserved images. Mandatory for
                         video, optional for images. Will delete images in-
                         place if not specified.
+  --exts EXTS           If --input_path is a dir, image extensions to check
+                        for. Default is 'jpg,jpeg,png'. Anything supported by
+                        OpenCV should work.
   --target_count TARGET_COUNT
                         Target number of images to retain.
   --target_percentage TARGET_PERCENTAGE
@@ -70,7 +82,6 @@ options:
                         and populate the output dir if input_path is a video!
   --yes, -y             Automatically answer 'yes' to all prompts and execute
                         actions.
-
 ```
 
 #### 02_filter_colmap_data.py:

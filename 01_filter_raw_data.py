@@ -23,18 +23,25 @@ def extract_frames(input_vid, output_path):
     ]
     subprocess.run(cmd)
 
-def main(input_path, output_path, target_count, groups=None, scalar=None):
+def main(input_path, output_path, img_exts, target_count, groups=None, scalar=None):
     # Check if input_path is a folder or video
     if os.path.isdir(input_path):
-        images = [os.path.join(input_path, img) for img in os.listdir(input_path) if img.endswith('.jpg')]
+        images = [os.path.join(input_path, img) for img in os.listdir(input_path) if img.lower().endswith(img_exts)]
         images.sort()
     else:
         extract_frames(input_path, output_path)
         images = [os.path.join(output_path, img) for img in os.listdir(output_path) if img.endswith('.jpg')]
         images.sort()
 
+    total_images = len(images)
+    print(f"Found a total of {total_images} images to work on.")
+
+    if total_images == 0:
+        print("Error: No images/frames found to work on. If you specified a folder, make sure the images in it are in --exts (default: jpg, jpeg, png).")
+        print("Aborting.")
+        return
+
     if target_count is None:
-        total_images = len(images)
         target_count = int(total_images * (args.target_percentage / 100))
 
     selector = ImageSelector(images)
@@ -74,6 +81,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select and retain only the sharpest frames from a video or folder of images.")
     parser.add_argument('--input_path', required=True, help="Path to the input_path video or folder of images.")
     parser.add_argument('--output_path', help="Directory to save the preserved images. Mandatory for video, optional for images. Will delete images in-place if not specified.")
+    parser.add_argument('--exts', default='jpg,jpeg,png', help="If --input_path is a dir, image extensions to check for. Default is 'jpg,jpeg,png'. Anything supported by OpenCV should work.")
     group_target = parser.add_mutually_exclusive_group(required=True)
     group_target.add_argument('--target_count', type=int, help="Target number of images to retain.")
     group_target.add_argument('--target_percentage', type=float, help="Target percentage of top quality images to retain. I.e. --target_percentage 95 removes the 5%% worst quality images.")
@@ -85,9 +93,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if not os.path.isdir(args.input_path) and not args.output_path:
+    if not os.path.exists(args.input_path):
+        parser.error(f"--input_path does not exist: \"{args.input_path}\"")
+    elif not os.path.isdir(args.input_path) and not args.output_path:
         parser.error("The --output_path argument is mandatory when the input_path is a video.")
     elif not args.output_path or (os.path.normcase(os.path.abspath(os.path.normpath(args.input_path))) is os.path.normcase(os.path.abspath(os.path.normpath(args.output_path)))):
         args.output_path = args.input_path
 
-    main(args.input_path, args.output_path, args.target_count, args.groups, args.scalar)
+    img_exts = supported_extensions = tuple('.' + ext.lower() for ext in args.exts.split(','))
+
+    main(args.input_path, args.output_path, img_exts, args.target_count, args.groups, args.scalar)
