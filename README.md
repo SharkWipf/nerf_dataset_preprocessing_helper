@@ -147,7 +147,7 @@ Then simply use that folder as your ns-train input.
 
 ## Explanation about `--groups` and `--scalar`
 
-(This section is pretty difficult to explain effectively, if you're having trouble figuring these out, you will probably be fine just copying the example commands' settings here.)
+(This section is pretty difficult to explain effectively, if you're having trouble figuring these out, you will probably be fine just copying the example commands' settings. These settings are for more advanced, finer control)
 
 The `--groups` and `--scalar` options control how images are selected for removal or retention, aiming to avoid large data gaps. By default, the script distributes the images it removes as evenly as possible across the dataset. This mechanism ensures that there are no significant gaps in the filtered data, preserving data consistency.
 
