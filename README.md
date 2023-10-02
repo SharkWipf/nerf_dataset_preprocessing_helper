@@ -142,3 +142,28 @@ Pre-filter the worst 5% of images from an input video over the whole dataset, th
 
 Afterwards you'll have a transforms_filtered.json in the same folder as your main transforms. Once you're happy with it, you can either replace your original transforms.json (keeping in mind that if you mess up, you have to re-do the entire COLMAP), or copy the whole COLMAP output folder and replacing the transforms.json in there with the new one.  
 Then simply use that folder as your ns-train input.
+
+
+
+## Explanation about `--groups` and `--scalar`
+
+(This section is pretty difficult to explain effectively, if you're having trouble figuring these out, you will probably be fine just copying the example commands' settings here.)
+
+The `--groups` and `--scalar` options control how images are selected for removal or retention, aiming to avoid large data gaps. By default, the script distributes the images it removes as evenly as possible across the dataset. This mechanism ensures that there are no significant gaps in the filtered data, preserving data consistency.
+
+### `--groups` Option
+
+The `--groups` option partitions your dataset into a specified number of evenly distributed groups. The script then determines how many images to retain from each group based on the `--target_count` or `--target_percentage` setting.
+
+For instance:
+- With 100 images, `--groups 2`, and requesting 10 images, the dataset will be divided into two equal halves. Five images will be retained from each group.
+- With 100 images, `--groups 1`, and requesting 10 images, the entire dataset is considered as one large group. The 10 sharpest images are retained from the whole set.
+
+### `--scalar` Option
+
+The `--scalar` option offers a more dynamic grouping mechanism. It determines the number of groups based on the provided scalar value and the requested number of images. The grouping frequency changes with different scalar values:
+- `--scalar 1` (default): For every image you wish to retain, there is a unique group. So if you request 10 images from a dataset of 100, the script divides the data into 10 groups, retaining the sharpest image from each group.
+- `--scalar 2`: The dataset is divided into half the number of groups compared to `--scalar 1`, and two images are retained from each group.
+- `--scalar 3`: The dataset is divided into a fourth of the groups compared to `--scalar 1` (More accurately, half those of --scalar 2), retaining four images from each group, and so forth.
+
+Essentially, a higher scalar value means fewer but larger groups, ensuring a wider image selection base. In contrast, a lower scalar value means more but smaller groups, ensuring a tighter and more even image distribution.
